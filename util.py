@@ -13,7 +13,7 @@ def get_reviews_by_date_range(end_date, days):
     """
     Mengambil ulasan riil dari Google Play Store dan memfilternya berdasarkan rentang tanggal.
     """
-    MAX_RESULTS = 500  # Batasi jumlah ulasan yang di-scrape
+    MAX_RESULTS = 5000  # Batasi jumlah ulasan yang di-scrape
     
     # Hitung tanggal mulai
     start_date = end_date - timedelta(days=days - 1)
