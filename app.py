@@ -21,13 +21,20 @@ LABEL_MAP = {0: 'Pujian', 1: 'Keluhan', 2: 'Saran', 3: 'Laporan Kesalahan'}
 def load_model_and_tokenizer(model_path):
     """Memuat konfigurasi, model, dan tokenizer IndoBERT yang telah dilatih."""
     try:
-        # Memuat Tokenizer (menggunakan vocab.txt, tokenizer_config, dll.)
+        # Memuat Tokenizer 
         tokenizer = AutoTokenizer.from_pretrained(model_path)
-        # Memuat Model (menggunakan model.safetensors)
-        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        
+        # MEMUAT MODEL SECARA EKSPLISIT DENGAN parameter 'local_files_only=True' 
+        # dan memastikan ia mencari di folder lokal.
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_path,
+            local_files_only=True 
+        )
         model.eval() 
         return tokenizer, model
     except Exception as e:
+        # PENTING: Jika error tetap terjadi setelah menambahkan safetensors, 
+        # kemungkinan besar ada masalah pada file 'model.safetensors' itu sendiri.
         st.error(f"❌ Gagal memuat model/tokenizer. Pastikan path '{model_path}' benar dan semua file ada. Error: {e}")
         return None, None
 
