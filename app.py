@@ -11,7 +11,7 @@ from util import get_reviews_by_date_range # Import fungsi scraping riil
 
 # --- KONFIGURASI PATH DAN LABEL ---
 # GANTI DENGAN PATH ASLI MODEL ANDA (Gunakan r"" untuk path Windows)
-MODEL_PATH = r"C:\Users\LENOVO\OneDrive\Documents\UPY\BISMILLAH SKRIPSI\aplikasi\model_kai" 
+MODEL_PATH = "model_kai"
 
 # Label mapping sesuai dengan 4 kategori intent penelitian
 LABEL_MAP = {0: 'Pujian', 1: 'Keluhan', 2: 'Saran', 3: 'Laporan Kesalahan'} 
