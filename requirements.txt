@@ -18,6 +18,6 @@ plotly          # Digunakan dalam contoh kode Streamlit untuk chart interaktif
 # Jika Anda benar-benar melakukan scraping data saat runtime:
 google-play-scraper 
 
-
+safetensors
 # Jika Anda menggunakan library untuk Normalisasi yang lebih mendalam:
 # sastrawi
