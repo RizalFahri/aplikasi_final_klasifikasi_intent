@@ -5,26 +5,27 @@ import torch
 import numpy as np
 import plotly.express as px
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import io
-import os
 
-# Import fungsi dari util.py milikmu
-from util import (
-    get_reviews_by_date_range,
-    clean_text,
-    normalize_text,
-    load_kbba_dict
-)
+# Import fungsi dari util.py Anda
+try:
+    from util import (
+        get_reviews_by_date_range,
+        clean_text,
+        normalize_text,
+        load_kbba_dict
+    )
+except ImportError:
+    st.error("File util.py tidak ditemukan. Pastikan util.py ada di repository GitHub Anda.")
 
 # =========================================================
-# 1. KONFIGURASI PATH & MODEL
+# 1. KONFIGURASI MODEL HUGGING FACE
 # =========================================================
-# Mengambil model dari Hugging Face
-MODEL_PATH = "ree28/klasifikasiulasankai-indobert"
-KBBA_PATH = "kbba.txt"
+# Ganti dengan repo Hugging Face Anda
+MODEL_NAME = "ree28/klasifikasiulasankai-indobert"
+KBBA_FILE = "kbba.txt"
 
 LABEL_MAP = {
     0: "Pujian",
@@ -32,7 +33,6 @@ LABEL_MAP = {
     2: "Saran",
     3: "Laporan Kesalahan"
 }
-LABELS = list(LABEL_MAP.values())
 
 # =========================================================
 # 2. KONFIGURASI HALAMAN
@@ -44,44 +44,44 @@ st.set_page_config(
 )
 
 st.title("🚂 SISTEM KLASIFIKASI INTENT ULASAN APLIKASI ACCESS BY KAI")
-st.caption("Analisis Otomatis Berbasis IndoBERT untuk Pendukung Keputusan Manajemen KAI")
+st.caption("Analisis Otomatis Berbasis IndoBERT - Versi Deploy Cloud")
 st.divider()
 
 # =========================================================
 # 3. FUNGSI UTILITY & NLP
 # =========================================================
 
-@st.cache_resource 
-def load_trained_model():
+@st.cache_data
+def get_kbba():
     try:
-        # Gunakan MODEL_PATH yang merujuk ke "ree28/klasifikasiulasankai-indobert"
-        # Tambahkan trust_remote_code jika model kamu menggunakan custom layer
-        from transformers import AutoTokenizer, AutoModelForSequenceClassification
-        
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
-        
+        # Mencari file kbba.txt di folder yang sama dengan app.py
+        return load_kbba_dict(KBBA_FILE)
+    except Exception as e:
+        st.warning(f"File {KBBA_FILE} tidak ditemukan, menggunakan kamus kosong.")
+        return {}
+
+KBBA_MAP = get_kbba()
+
+@st.cache_resource
+def load_model_and_tokenizer(model_path):
+    try:
+        # Load langsung dari Hugging Face Hub
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        model.eval()
         return tokenizer, model
     except Exception as e:
         st.error(f"Gagal memuat model dari Hugging Face: {e}")
         return None, None
 
-# Inisialisasi
-tokenizer, model = load_trained_model()
+tokenizer, model = load_model_and_tokenizer(MODEL_NAME)
 
-# Cek validitas objek sebelum lanjut
-if tokenizer is None or not hasattr(tokenizer, 'encode_plus'):
-    st.error("❌ Tokenizer tidak valid atau tidak memiliki atribut 'encode_plus'.")
-    st.stop()
-
-def preprocess_text(text, tokenizer, max_length=128):
+def preprocess_text(text, _tokenizer, max_length=128):
+    # Membersihkan dan normalisasi teks menggunakan fungsi dari util.py
     text = clean_text(text)
     text = normalize_text(text, KBBA_MAP)
     
-    # Memastikan input adalah string
-    text = str(text)
-    
-    return tokenizer.encode_plus(
+    return _tokenizer.encode_plus(
         text,
         add_special_tokens=True,
         max_length=max_length,
@@ -91,29 +91,27 @@ def preprocess_text(text, tokenizer, max_length=128):
         return_tensors="pt"
     )
 
-def classify_review(text, tokenizer, model):
-    try:
-        encoded = preprocess_text(text, tokenizer)
-        model.eval()
-        with torch.no_grad():
-            output = model(
-                input_ids=encoded["input_ids"],
-                attention_mask=encoded["attention_mask"]
-            )
-            probs = torch.softmax(output.logits, dim=1)[0].cpu().numpy()
+def classify_review(text, _tokenizer, _model):
+    if _tokenizer is None or _model is None:
+        return "Model Error", 0.0
         
-        idx = np.argmax(probs)
-        return LABEL_MAP[idx], probs[idx]
-    except Exception as e:
-        st.error(f"Error saat klasifikasi: {e}")
-        return "Error", 0.0
+    encoded = preprocess_text(text, _tokenizer)
+    with torch.no_grad():
+        output = _model(
+            input_ids=encoded["input_ids"],
+            attention_mask=encoded["attention_mask"]
+        )
+        # Ambil probabilitas menggunakan softmax
+        probs = torch.softmax(output.logits, dim=1)[0].numpy()
+        
+    idx = np.argmax(probs)
+    return LABEL_MAP[idx], probs[idx]
 
 def generate_wordcloud(text_series):
-    text = " ".join(text_series)
+    text = " ".join(text_series.astype(str))
     wc = WordCloud(
-        width=800, height=450,
+        width=800, height=400,
         background_color="white",
-        collocations=False,
         colormap='tab10'
     ).generate(text)
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -125,118 +123,90 @@ def to_excel(df):
     output = io.BytesIO()
     try:
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="Laporan_Analisis")
+            df.to_excel(writer, index=False, sheet_name="Laporan")
         return output.getvalue()
     except Exception:
         return None
 
 # =========================================================
-# 4. SIDEBAR PANEL
+# 4. SIDEBAR & MENU
 # =========================================================
 st.sidebar.title("⚙️ Panel Kontrol")
 mode = st.sidebar.radio("Pilih Mode Analisis", ["📝 Ulasan Tunggal", "📊 Analisis Batch"])
-st.sidebar.divider()
-st.sidebar.info("Aplikasi ini mengklasifikasikan ulasan ke dalam 4 kategori: Pujian, Keluhan, Saran, dan Laporan Kesalahan.")
 
 # =========================================================
 # MODE 1: ULASAN TUNGGAL
 # =========================================================
 if mode == "📝 Ulasan Tunggal":
     st.subheader("📝 Klasifikasi Ulasan Tunggal")
-    review_text = st.text_area("Masukkan teks ulasan", placeholder="Contoh: Aplikasinya sangat membantu buat beli tiket kereta!")
+    review_input = st.text_area("Masukkan ulasan pelanggan:", placeholder="Tulis di sini...")
 
-    if st.button("🔍 Klasifikasikan", type="primary"):
-        if review_text.strip():
-            intent, score = classify_review(review_text, tokenizer, model)
-            c1, c2 = st.columns(2)
-            c1.metric("Intent Terdeteksi", intent)
-            c2.metric("Confidence Score", f"{score:.4f}")
+    if st.button("🔍 Analisis Intent", type="primary"):
+        if review_input.strip():
+            intent, score = classify_review(review_input, tokenizer, model)
+            col_a, col_b = st.columns(2)
+            col_a.metric("Kategori Intent", intent)
+            col_b.metric("Confidence Score", f"{score:.4f}")
         else:
-            st.warning("⚠️ Masukkan teks ulasan terlebih dahulu.")
+            st.warning("Silakan masukkan teks ulasan.")
 
 # =========================================================
 # MODE 2: ANALISIS BATCH
 # =========================================================
 else:
-    st.subheader("📊 Analisis Batch Ulasan")
+    st.subheader("📊 Analisis Batch (Play Store Scraping)")
     
-    with st.expander("📅 Filter Rentang Waktu", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("Tanggal Mulai", date.today() - timedelta(days=7))
-        with col2:
-            end_date = st.date_input("Tanggal Akhir", date.today())
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("Mulai", date.today() - timedelta(days=7))
+    with col2:
+        end_date = st.date_input("Selesai", date.today())
 
-    if start_date >= end_date:
-        st.error("Tanggal mulai harus lebih kecil dari tanggal akhir.")
-        st.stop()
-
-    if st.button("🚀 Ambil & Proses Data", type="primary"):
-        days = (end_date - start_date).days + 1
-        
-        with st.spinner("🔄 Scraping data dari Google Play..."):
-            df_raw = get_reviews_by_date_range(end_date, days)
-
-        if df_raw.empty:
-            st.warning("Tidak ada data ulasan ditemukan.")
-            st.stop()
-
-        # --- PROSES KLASIFIKASI ---
-        pbar = st.progress(0)
-        intents, scores = [], []
-        
-        for i, review in enumerate(df_raw["Ulasan"]):
-            intent, score = classify_review(review, tokenizer, model)
-            intents.append(intent)
-            scores.append(score)
-            pbar.progress((i + 1) / len(df_raw))
-        
-        df_raw["Intent Prediksi"] = intents
-        df_raw["Confidence Score"] = scores
-        
-        st.session_state['df_hasil_kai'] = df_raw
-        st.success("✅ Klasifikasi Selesai!")
-
-    if 'df_hasil_kai' in st.session_state:
-        df_final = st.session_state['df_hasil_kai']
-        st.divider()
-        v_col1, v_col2 = st.columns(2)
-
-        with v_col1:
-            st.markdown("#### ☁️ Word Cloud")
-            st.pyplot(generate_wordcloud(df_final["Ulasan"]))
-
-        with v_col2:
-            st.markdown("#### 🥧 Distribusi Intent")
-            intent_count = df_final["Intent Prediksi"].value_counts().reset_index()
-            intent_count.columns = ["Intent", "Jumlah"]
-
-            fig = px.pie(
-                intent_count, values="Jumlah", names="Intent",
-                hole=0.4,
-                color_discrete_sequence=px.colors.qualitative.Safe
-            )
-            fig.update_traces(textinfo="label+value+percent", textposition="outside")
-            fig.update_layout(height=450, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
-
-        st.divider()
-        st.subheader("🔍 Detail Data & Laporan")
-        search_term = st.text_input("Cari ulasan spesifik:")
-        
-        if search_term:
-            df_filtered = df_final[df_final["Ulasan"].str.contains(search_term, case=False, na=False)]
+    if st.button("🚀 Proses Data", type="primary"):
+        if start_date >= end_date:
+            st.error("Rentang tanggal tidak valid.")
         else:
-            df_filtered = df_final
+            days = (end_date - start_date).days + 1
+            with st.spinner("Mengambil ulasan dari Google Play..."):
+                df_raw = get_reviews_by_date_range(end_date, days)
 
-        st.write(f"Menampilkan **{len(df_filtered)}** ulasan.")
-        st.dataframe(df_filtered, use_container_width=True)
+            if not df_raw.empty:
+                # Proses Klasifikasi
+                intents, scores = [], []
+                pbar = st.progress(0)
+                
+                for i, txt in enumerate(df_raw["Ulasan"]):
+                    it, sc = classify_review(txt, tokenizer, model)
+                    intents.append(it)
+                    scores.append(sc)
+                    pbar.progress((i + 1) / len(df_raw))
+                
+                df_raw["Intent Prediksi"] = intents
+                df_raw["Confidence Score"] = scores
+                st.session_state['data_kai'] = df_raw
+                st.success(f"Berhasil memproses {len(df_raw)} ulasan!")
+            else:
+                st.warning("Tidak ada ulasan ditemukan pada rentang tersebut.")
 
-        excel_data = to_excel(df_filtered)
-        if excel_data:
-            st.download_button(
-                label="📥 Unduh Laporan Excel",
-                data=excel_data,
-                file_name=f"Laporan_KAI_{date.today()}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+    # Tampilkan Hasil Jika Ada
+    if 'data_kai' in st.session_state:
+        df_res = st.session_state['data_kai']
+        
+        st.divider()
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.pyplot(generate_wordcloud(df_res["Ulasan"]))
+        with c2:
+            counts = df_res["Intent Prediksi"].value_counts().reset_index()
+            fig_pie = px.pie(counts, values="count", names="Intent Prediksi", hole=0.4)
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+        st.divider()
+        search = st.text_input("Cari kata kunci dalam ulasan:")
+        df_show = df_res[df_res["Ulasan"].str.contains(search, case=False)] if search else df_res
+        
+        st.dataframe(df_show, use_container_width=True)
+        
+        excel_file = to_excel(df_show)
+        if excel_file:
+            st.download_button("📥 Download Excel", data=excel_file, file_name="hasil_analisis.xlsx")
