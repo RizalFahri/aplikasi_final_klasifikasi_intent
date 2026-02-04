@@ -51,14 +51,16 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
+        # 1. Muat Tokenizer dari Hugging Face
         tokenizer = AutoTokenizer.from_pretrained(path)
-        model = AutoModelForSequenceClassification.from_pretrained(
-            path, local_files_only=True
-        )
+        
+        # 2. Muat Model dari Hugging Face (Hapus local_files_only=True)
+        model = AutoModelForSequenceClassification.from_pretrained(path)
+        
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Gagal memuat model: {e}")
+        st.error(f"Gagal memuat model dari Hugging Face: {e}")
         return None, None
 
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
