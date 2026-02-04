@@ -1,9 +1,10 @@
 streamlit
 pandas
 torch
-transformers==4.35.0
+transformers>=4.30.0
+safetensors
 sentencepiece
-protobuf==3.20.3
+protobuf
 numpy
 plotly
 matplotlib

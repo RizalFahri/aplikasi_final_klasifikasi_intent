@@ -3,95 +3,75 @@ import pandas as pd
 from datetime import date, timedelta
 import torch
 import numpy as np
-import plotly.express as px
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from transformers import BertTokenizer, AutoModelForSequenceClassification
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud
 import io
 
-# Import fungsi dari util.py
-try:
-    from util import (
-        get_reviews_by_date_range,
-        clean_text,
-        normalize_text,
-        load_kbba_dict
-    )
-except ImportError:
-    st.error("⚠️ File 'util.py' tidak ditemukan di direktori.")
+# Import fungsi dari util.py milikmu
+from util import get_reviews_by_date_range, clean_text, normalize_text, load_kbba_dict
 
 # =========================================================
-# 1. KONFIGURASI MODEL & PATH (DEPLOY READY)
+# 1. KONFIGURASI PATH
 # =========================================================
-# JANGAN gunakan path C:\Users\... gunakan repo Hugging Face
 MODEL_NAME = "ree28/klasifikasiulasankai-indobert"
 KBBA_FILE = "kbba.txt" 
 
-LABEL_MAP = {
-    0: "Pujian",
-    1: "Keluhan",
-    2: "Saran",
-    3: "Laporan Kesalahan"
-}
+LABEL_MAP = {0: "Pujian", 1: "Keluhan", 2: "Saran", 3: "Laporan Kesalahan"}
 
 # =========================================================
-# 2. FUNGSI LOAD DATA & MODEL (DENGAN PROTEKSI)
+# 2. LOAD MODEL & TOKENIZER (SOLUSI SAFETENSORS)
 # =========================================================
-
 
 @st.cache_resource
 def load_essentials():
     try:
-        # Kita paksa menggunakan BertTokenizer agar tidak "None" atau "Rusak"
-        # use_fast=False lebih stabil untuk deployment
-        tokenizer = BertTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+        # Gunakan AutoTokenizer dengan use_fast=False untuk stabilitas IndoBERT
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
         
-        # Load Model
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+        # Tambahkan use_safetensors=True karena file Anda berformat .safetensors
+        model = AutoModelForSequenceClassification.from_pretrained(
+            MODEL_NAME, 
+            use_safetensors=True
+        )
         model.eval()
-        
         return tokenizer, model
     except Exception as e:
-        st.error(f"❌ Error saat download model: {e}")
+        st.error(f"Gagal memuat model: {e}")
         return None, None
+
+tokenizer, model = load_essentials()
+
 @st.cache_data
-def load_dictionary():
+def load_dict():
     try:
         return load_kbba_dict(KBBA_FILE)
     except:
         return {}
 
-# Inisialisasi
-tokenizer, model = load_essentials()
-KBBA_MAP = load_dictionary()
+KBBA_MAP = load_dict()
 
 # =========================================================
-# 3. LOGIKA PREPROCESS & KLASIFIKASI
+# 3. FUNGSI PREDIKSI
 # =========================================================
 
 def classify_review(text, _tokenizer, _model):
-    # Validasi objek sebelum digunakan
-    if _tokenizer is None or not hasattr(_tokenizer, 'encode_plus'):
-        return "Error: Tokenizer Rusak", 0.0
-    
+    # Cek apakah tokenizer benar-benar ter-load
+    if _tokenizer is None:
+        return "Error: Tokenizer Kosong", 0.0
+        
     try:
-        # 1. Preprocessing
-        text = clean_text(text)
+        # Pastikan teks bersih sebelum masuk tokenizer
+        text = clean_text(str(text))
         text = normalize_text(text, KBBA_MAP)
         
-        # 2. Encoding
         encoded = _tokenizer.encode_plus(
             text,
             add_special_tokens=True,
-            max_length=128, # Sesuaikan dengan saat training skripsi
+            max_length=128,
             padding="max_length",
             truncation=True,
-            return_attention_mask=True,
             return_tensors="pt"
         )
         
-        # 3. Predict
         with torch.no_grad():
             output = _model(
                 input_ids=encoded["input_ids"],
@@ -104,6 +84,7 @@ def classify_review(text, _tokenizer, _model):
     except Exception as e:
         return f"Error: {str(e)}", 0.0
 
+# --- Sisa kode UI Streamlit sama seperti sebelumnya ---
 # =========================================================
 # 4. ANTARMUKA STREAMLIT
 # =========================================================
