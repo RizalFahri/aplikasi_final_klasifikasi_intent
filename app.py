@@ -4,9 +4,9 @@ from datetime import date, timedelta
 import torch
 import numpy as np
 import plotly.express as px
-import os
+import os  # Pastikan os diimport
+import subprocess # Untuk menarik file LFS
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import io
@@ -19,11 +19,24 @@ from util import (
 )
 
 # =========================================================
-# 1. KONFIGURASI PATH & MODEL
+# 1. KONFIGURASI PATH & MODEL (VERSI GITHUB/CLOUD)
 # =========================================================
-# Cukup seperti ini jika folder model_kai ada di sebelah app.py
-MODEL_PATH = "model_kai"
-KBBA_PATH = "kbba.txt"
+# Menggunakan path relatif agar fleksibel
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model_kai")
+KBBA_PATH = os.path.join(BASE_DIR, "kbba.txt")
+
+# Tambahan khusus Git LFS: Tarik file asli jika yang terbaca hanya pointer (1KB)
+@st.cache_resource
+def sync_lfs():
+    try:
+        # Perintah ini memaksa server Cloud menarik file asli dari LFS
+        subprocess.run(["git", "lfs", "install"], check=True)
+        subprocess.run(["git", "lfs", "pull"], check=True)
+    except Exception as e:
+        st.warning(f"Catatan: Gagal menjalankan git lfs pull otomatis ({e}). Pastikan model sudah terunduh sempurna.")
+
+sync_lfs()
 
 LABEL_MAP = {
     0: "Pujian",
@@ -31,7 +44,6 @@ LABEL_MAP = {
     2: "Saran",
     3: "Laporan Kesalahan"
 }
-LABELS = list(LABEL_MAP.values())
 
 # =========================================================
 # 2. KONFIGURASI HALAMAN
@@ -55,24 +67,16 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 def load_model_and_tokenizer(path):
     try:
         tokenizer = AutoTokenizer.from_pretrained(path)
-        # Hapus local_files_only agar dia bisa mencari file di cache jika perlu
         model = AutoModelForSequenceClassification.from_pretrained(
-            path, 
-            use_safetensors=True
+            path, local_files_only=True
         )
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"🚨 Gagal memuat model: {e}")
+        st.error(f"Gagal memuat model: {e}")
         return None, None
 
-# Panggil fungsi
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
-
-# STOP aplikasi jika tokenizer gagal dimuat agar tidak AttributeError
-if tokenizer is None:
-    st.warning("Aplikasi dihentikan karena tokenizer tidak tersedia.")
-    st.stop()
 
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
