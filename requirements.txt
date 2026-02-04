@@ -2,7 +2,8 @@ streamlit
 pandas
 torch
 transformers
-scipy
+sentencepiece
+protobuf
 numpy
 plotly
 matplotlib
