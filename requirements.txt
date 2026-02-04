@@ -7,7 +7,7 @@ pandas
 numpy
 
 # Web Application
-
+streamlit
 
 # Deep Learning & NLP
 torch==2.0.1
