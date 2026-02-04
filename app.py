@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import plotly.express as px
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import BertTokenizer, AutoModelForSequenceClassification
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import io
@@ -38,19 +39,22 @@ LABEL_MAP = {
 # 2. FUNGSI LOAD DATA & MODEL (DENGAN PROTEKSI)
 # =========================================================
 
+
 @st.cache_resource
 def load_essentials():
     try:
-        # Load Tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+        # Kita paksa menggunakan BertTokenizer agar tidak "None" atau "Rusak"
+        # use_fast=False lebih stabil untuk deployment
+        tokenizer = BertTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+        
         # Load Model
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
         model.eval()
+        
         return tokenizer, model
     except Exception as e:
-        st.error(f"❌ Kritis: Gagal memuat model/tokenizer dari Hugging Face. Error: {e}")
+        st.error(f"❌ Error saat download model: {e}")
         return None, None
-
 @st.cache_data
 def load_dictionary():
     try:
