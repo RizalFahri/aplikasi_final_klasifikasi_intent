@@ -10,6 +10,7 @@ from wordcloud import WordCloud
 import io
 import os
 
+# Import fungsi dari util.py milikmu
 from util import (
     get_reviews_by_date_range,
     clean_text,
@@ -20,7 +21,7 @@ from util import (
 # =========================================================
 # 1. KONFIGURASI PATH & MODEL
 # =========================================================
-# Path Hugging Face (Pastikan repo 'ree28/klasifikasiulasankai-indobert' bersifat PUBLIC)
+# Mengambil model dari Hugging Face
 MODEL_PATH = "ree28/klasifikasiulasankai-indobert"
 KBBA_PATH = "kbba.txt"
 
@@ -48,28 +49,36 @@ st.divider()
 # =========================================================
 # 3. FUNGSI UTILITY & NLP
 # =========================================================
-KBBA_MAP = load_kbba_dict(KBBA_PATH)
+
+# Memuat kamus KBBA
+try:
+    KBBA_MAP = load_kbba_dict(KBBA_PATH)
+except Exception as e:
+    st.error(f"Gagal memuat file KBBA: {e}")
+    KBBA_MAP = {}
 
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # Menarik dari Hugging Face (Tanpa local_files_only)
-        tokenizer = AutoTokenizer.from_pretrained(path)
-        model = AutoModelForSequenceClassification.from_pretrained(path)
-        model.eval()
-        return tokenizer, model
+        # PENTING: Tanpa local_files_only agar mendownload dari Hugging Face
+        tk = AutoTokenizer.from_pretrained(path)
+        md = AutoModelForSequenceClassification.from_pretrained(path)
+        md.eval()
+        return tk, md
     except Exception as e:
-        st.sidebar.error(f"Gagal memuat model: {e}")
+        st.sidebar.error(f"Detail Error Load Model: {e}")
         return None, None
 
+# Proses pemuatan model
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
 
-# PROTEKSI: Hentikan app jika model gagal dimuat
+# --- PROTEKSI KRUSIAL ---
+# Menghentikan aplikasi jika model/tokenizer gagal dimuat
 if tokenizer is None or model is None:
-    st.error("❌ Model tidak tersedia. Periksa koneksi ke Hugging Face.")
+    st.error("❌ Gagal memuat Model atau Tokenizer dari Hugging Face.")
+    st.info("Silakan cek koneksi internet server atau pastikan Repo Hugging Face Anda adalah PUBLIC.")
     st.stop()
 
-# --- PASTIKAN FUNGSI INI ADA ---
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
     text = normalize_text(text, KBBA_MAP)
@@ -82,7 +91,7 @@ def preprocess_text(text, tokenizer, max_length=32):
     )
 
 def classify_review(text, tokenizer, model):
-    encoded = preprocess_text(text, tokenizer) # Fungsi ini dipanggil di sini
+    encoded = preprocess_text(text, tokenizer)
     with torch.no_grad():
         output = model(
             input_ids=encoded["input_ids"],
@@ -91,7 +100,7 @@ def classify_review(text, tokenizer, model):
         probs = torch.softmax(output.logits, dim=1)[0].numpy()
     idx = np.argmax(probs)
     return LABEL_MAP[idx], probs[idx]
-    
+
 def generate_wordcloud(text_series):
     text = " ".join(text_series)
     wc = WordCloud(
@@ -111,7 +120,7 @@ def to_excel(df):
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             df.to_excel(writer, index=False, sheet_name="Laporan_Analisis")
         return output.getvalue()
-    except ImportError:
+    except Exception:
         return None
 
 # =========================================================
@@ -139,7 +148,7 @@ if mode == "📝 Ulasan Tunggal":
             st.warning("⚠️ Masukkan teks ulasan terlebih dahulu.")
 
 # =========================================================
-# MODE 2: ANALISIS BATCH (REVISI PENCARIAN)
+# MODE 2: ANALISIS BATCH
 # =========================================================
 else:
     st.subheader("📊 Analisis Batch Ulasan")
@@ -155,7 +164,6 @@ else:
         st.error("Tanggal mulai harus lebih kecil dari tanggal akhir.")
         st.stop()
 
-    # Tombol untuk memicu proses scraping & klasifikasi
     if st.button("🚀 Ambil & Proses Data", type="primary"):
         days = (end_date - start_date).days + 1
         
@@ -179,16 +187,11 @@ else:
         df_raw["Intent Prediksi"] = intents
         df_raw["Confidence Score"] = scores
         
-        # --- SIMPAN KE SESSION STATE ---
-        # Ini kunci agar data tidak hilang saat Anda mengetik di kolom pencarian
         st.session_state['df_hasil_kai'] = df_raw
         st.success("✅ Klasifikasi Selesai!")
 
-    # --- TAMPILKAN HASIL JIKA DATA SUDAH TERSEDIA DI MEMORI (SESSION STATE) ---
     if 'df_hasil_kai' in st.session_state:
         df_final = st.session_state['df_hasil_kai']
-
-        # --- VISUALISASI BERDAMPINGAN ---
         st.divider()
         v_col1, v_col2 = st.columns(2)
 
@@ -208,31 +211,25 @@ else:
             )
             fig.update_traces(textinfo="label+value+percent", textposition="outside")
             fig.update_layout(height=450, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True, key="batch_pie_kai")
+            st.plotly_chart(fig, use_container_width=True)
 
-        # --- FITUR PENCARIAN & FILTER ---
         st.divider()
         st.subheader("🔍 Detail Data & Laporan")
+        search_term = st.text_input("Cari ulasan spesifik:")
         
-        # Field pencarian yang sekarang akan bekerja secara real-time
-        search_term = st.text_input("Cari ulasan spesifik (contoh: 'login' atau 'bayar'):")
-        
-        # Logika pencarian yang aman dari nilai kosong (NaN)
         if search_term:
             df_filtered = df_final[df_final["Ulasan"].str.contains(search_term, case=False, na=False)]
         else:
             df_filtered = df_final
 
-        st.write(f"Menampilkan **{len(df_filtered)}** dari **{len(df_final)}** ulasan.")
+        st.write(f"Menampilkan **{len(df_filtered)}** ulasan.")
         st.dataframe(df_filtered, use_container_width=True)
 
-        # --- DOWNLOAD EXCEL ---
         excel_data = to_excel(df_filtered)
         if excel_data:
             st.download_button(
-                label="📥 Unduh Laporan Excel Terfilter",
+                label="📥 Unduh Laporan Excel",
                 data=excel_data,
-                file_name=f"Laporan_KAI_Filter_{date.today()}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="download_btn_kai"
+                file_name=f"Laporan_KAI_{date.today()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
