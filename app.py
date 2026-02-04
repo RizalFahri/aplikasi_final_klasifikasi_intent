@@ -55,18 +55,26 @@ st.divider()
 @st.cache_resource
 def load_essentials():
     try:
-        # Gunakan use_fast=False untuk stabilitas model IndoBERT
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+        # Gunakan AutoTokenizer dengan use_fast=False (Wajib untuk IndoBERT)
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
         
-        # Tambahkan use_safetensors=True sesuai format file di HF Anda
-        model = AutoModelForSequenceClassification.from_pretrained(
+        tokenizer = AutoTokenizer.from_pretrained(
             MODEL_NAME, 
-            use_safetensors=True
+            use_fast=False,
+            trust_remote_code=True
+        )
+        
+        # Load model dengan dukungan safetensors sesuai repo HF Anda
+        model = AutoModelForSequenceClassification.from_pretrained(
+            MODEL_NAME,
+            use_safetensors=True,
+            trust_remote_code=True
         )
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Gagal memuat model/tokenizer: {e}")
+        # Menampilkan error spesifik di UI jika gagal
+        st.error(f"Detail Error Load: {e}")
         return None, None
 
 @st.cache_data
