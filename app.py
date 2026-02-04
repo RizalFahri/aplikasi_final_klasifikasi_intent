@@ -28,24 +28,31 @@ download_lfs()
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # Pastikan file config.json ada di folder
-        if not os.path.exists(os.path.join(path, "config.json")):
+        # 1. Validasi keberadaan folder
+        if not os.path.exists(path):
+            st.error(f"Folder tidak ditemukan di: {path}")
             return None, None
             
+        # 2. Muat Tokenizer
         tokenizer = AutoTokenizer.from_pretrained(path)
+        
+        # 3. Muat Model (HAPUS local_files_only=True)
         model = AutoModelForSequenceClassification.from_pretrained(path)
+        
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.sidebar.error(f"Detail Error: {e}")
+        # Menampilkan detail error di sidebar untuk memudahkan debug
+        st.sidebar.error(f"Detail Error Load Model: {e}")
         return None, None
 
+# Panggil fungsi
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
 
-# PROTEKSI: Hentikan app jika tokenizer kosong agar tidak muncul AttributeError
+# Hentikan aplikasi secara paksa jika gagal agar tidak melaju ke preprocess_text
 if tokenizer is None or model is None:
-    st.error("❌ Model gagal dimuat. Kemungkinan besar file model di GitHub masih berupa pointer LFS (1 KB).")
-    st.info("Pastikan Anda sudah menambahkan 'git-lfs' di file packages.txt")
+    st.error("❌ SISTEM BERHENTI: Model tidak bisa dimuat dari folder 'model_kai'.")
+    st.info("Buka sidebar (tanda panah di kiri atas) untuk melihat detail error teknisnya.")
     st.stop()
 
 def preprocess_text(text, tokenizer, max_length=32):
