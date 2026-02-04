@@ -1,24 +1,22 @@
-# File: requirements.txt
+# Core Data Science
+pandas
+numpy
 
-# --- Core Libraries ---
-pandas          # Untuk pengolahan data (DataFrame) [cite: 365]
-numpy           # Untuk operasi numerik, terutama pada hasil prediksi model [cite: 365]
-streamlit       # Untuk membangun aplikasi web interaktif 
+# Web Application
+streamlit
 
-# --- NLP and Deep Learning Libraries ---
-torch           # PyTorch, framework yang digunakan oleh IndoBERT/Transformers.
-transformers    # Pustaka utama untuk model IndoBERT dan tokenizer-nya [cite: 364]
-
-# --- Visualization Libraries ---
-matplotlib      # Untuk visualisasi data (jika digunakan) [cite: 366]
-seaborn         # Untuk visualisasi data statistik (jika digunakan) [cite: 366]
-plotly          # Digunakan dalam contoh kode Streamlit untuk chart interaktif
-
-# --- Optional/Utility Libraries (Jika digunakan dalam implementasi nyata) ---
-google-play-scraper 
+# Deep Learning & NLP
+torch
+transformers
 safetensors
+
+# Visualisasi
+matplotlib
+seaborn
+plotly
 wordcloud
 
+# Scraper & Utilities
+google-play-scraper
 xlsxwriter
-# Jika Anda menggunakan library untuk Normalisasi yang lebih mendalam:
-# sastrawi
+sastrawi
