@@ -19,8 +19,8 @@ from util import (
 # =========================================================
 # 1. KONFIGURASI PATH & MODEL
 # =========================================================
-MODEL_PATH = r"C:\Users\LENOVO\OneDrive\Documents\UPY\BISMILLAH SKRIPSI\aplikasi - success - nyoba\model_kai"
-KBBA_PATH = r"C:\Users\LENOVO\OneDrive\Documents\UPY\BISMILLAH SKRIPSI\aplikasi - success - nyoba\kbba.txt"
+MODEL_PATH = "model_kai"
+KBBA_PATH = "kbba.txt"
 
 LABEL_MAP = {
     0: "Pujian",
