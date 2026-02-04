@@ -15,9 +15,10 @@ seaborn         # Untuk visualisasi data statistik (jika digunakan) [cite: 366]
 plotly          # Digunakan dalam contoh kode Streamlit untuk chart interaktif
 
 # --- Optional/Utility Libraries (Jika digunakan dalam implementasi nyata) ---
-# Jika Anda benar-benar melakukan scraping data saat runtime:
 google-play-scraper 
-
 safetensors
+wordcloud
+
+xlsxwriter
 # Jika Anda menggunakan library untuk Normalisasi yang lebih mendalam:
 # sastrawi

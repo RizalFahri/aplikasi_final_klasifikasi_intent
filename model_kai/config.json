@@ -38,7 +38,7 @@
   "pooler_type": "first_token_transform",
   "position_embedding_type": "absolute",
   "problem_type": "single_label_classification",
-  "transformers_version": "4.57.2",
+  "transformers_version": "4.57.3",
   "type_vocab_size": 2,
   "use_cache": true,
   "vocab_size": 50000
