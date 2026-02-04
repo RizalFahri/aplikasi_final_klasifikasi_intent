@@ -1,33 +1,25 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
 import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import io
 
-# Import fungsi dari util.py milikmu
+# Import dari util.py Anda
 from util import get_reviews_by_date_range, clean_text, normalize_text, load_kbba_dict
 
-# =========================================================
-# 1. KONFIGURASI PATH
-# =========================================================
 MODEL_NAME = "ree28/klasifikasiulasankai-indobert"
 KBBA_FILE = "kbba.txt" 
-
 LABEL_MAP = {0: "Pujian", 1: "Keluhan", 2: "Saran", 3: "Laporan Kesalahan"}
-
-# =========================================================
-# 2. LOAD MODEL & TOKENIZER (SOLUSI SAFETENSORS)
-# =========================================================
 
 @st.cache_resource
 def load_essentials():
     try:
-        # Gunakan AutoTokenizer dengan use_fast=False untuk stabilitas IndoBERT
+        # Menggunakan AutoTokenizer agar otomatis mendeteksi konfigurasi dari HF
+        # use_fast=False sangat disarankan untuk model IndoBERT
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
         
-        # Tambahkan use_safetensors=True karena file Anda berformat .safetensors
+        # Memuat model dengan dukungan safetensors
         model = AutoModelForSequenceClassification.from_pretrained(
             MODEL_NAME, 
             use_safetensors=True
@@ -35,7 +27,7 @@ def load_essentials():
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Gagal memuat model: {e}")
+        st.error(f"Kritis: Gagal memuat model/tokenizer. Error: {e}")
         return None, None
 
 tokenizer, model = load_essentials()
@@ -49,42 +41,34 @@ def load_dict():
 
 KBBA_MAP = load_dict()
 
-# =========================================================
-# 3. FUNGSI PREDIKSI
-# =========================================================
-
 def classify_review(text, _tokenizer, _model):
-    # Cek apakah tokenizer benar-benar ter-load
-    if _tokenizer is None:
-        return "Error: Tokenizer Kosong", 0.0
+    # Pengecekan apakah tokenizer benar-benar valid
+    if _tokenizer is None or not hasattr(_tokenizer, 'encode_plus'):
+        return "Error: Inisialisasi Tokenizer Gagal", 0.0
         
     try:
-        # Pastikan teks bersih sebelum masuk tokenizer
         text = clean_text(str(text))
         text = normalize_text(text, KBBA_MAP)
         
+        # Proses encoding
         encoded = _tokenizer.encode_plus(
             text,
             add_special_tokens=True,
             max_length=128,
             padding="max_length",
             truncation=True,
+            return_attention_mask=True,
             return_tensors="pt"
         )
         
         with torch.no_grad():
-            output = _model(
-                input_ids=encoded["input_ids"],
-                attention_mask=encoded["attention_mask"]
-            )
-            probs = torch.softmax(output.logits, dim=1)[0].numpy()
+            outputs = _model(**encoded)
+            probs = torch.softmax(outputs.logits, dim=1)[0].numpy()
         
         idx = np.argmax(probs)
         return LABEL_MAP[idx], probs[idx]
     except Exception as e:
         return f"Error: {str(e)}", 0.0
-
-# --- Sisa kode UI Streamlit sama seperti sebelumnya ---
 # =========================================================
 # 4. ANTARMUKA STREAMLIT
 # =========================================================
