@@ -15,22 +15,25 @@ LABEL_MAP = {0: "Pujian", 1: "Keluhan", 2: "Saran", 3: "Laporan Kesalahan"}
 @st.cache_resource
 def load_essentials():
     try:
-        # Menggunakan AutoTokenizer agar otomatis mendeteksi konfigurasi dari HF
-        # use_fast=False sangat disarankan untuk model IndoBERT
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
-        
-        # Memuat model dengan dukungan safetensors
-        model = AutoModelForSequenceClassification.from_pretrained(
+        # Gunakan MODEL_NAME dari repo ree28/klasifikasiulasankai-indobert
+        # use_fast=False sangat krusial untuk stabilitas model berbasis IndoBERT di Cloud
+        tokenizer = AutoTokenizer.from_pretrained(
             MODEL_NAME, 
-            use_safetensors=True
+            use_fast=False, 
+            trust_remote_code=True
+        )
+        
+        # Pastikan menggunakan Safetensors sesuai isi repo Hugging Face Anda
+        model = AutoModelForSequenceClassification.from_pretrained(
+            MODEL_NAME,
+            use_safetensors=True,
+            trust_remote_code=True
         )
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Kritis: Gagal memuat model/tokenizer. Error: {e}")
+        st.error(f"Gagal memuat tokenizer/model: {e}")
         return None, None
-
-tokenizer, model = load_essentials()
 
 @st.cache_data
 def load_dict():
