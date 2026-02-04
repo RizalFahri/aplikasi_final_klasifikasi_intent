@@ -58,43 +58,52 @@ except Exception as e:
     st.error(f"Gagal memuat file KBBA: {e}")
     KBBA_MAP = {}
 
-# 1. Pastikan loading tokenizer dilakukan dengan benar
-@st.cache_resource # Gunakan cache agar tidak reload terus menerus
+@st.cache_resource 
 def load_model():
-    model_name = "indobenchmark/indobert-base-p2" # Atau path folder modelmu
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # Pastikan model juga dimuat
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    return tokenizer, model
+    try:
+        # PANGGIL MODEL_PATH yang berisi model hasil training kamu
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+        return tokenizer, model
+    except Exception as e:
+        st.error(f"Error detail: {e}")
+        return None, None
 
 tokenizer, model = load_model()
 
-# --- PROTEKSI KRUSIAL ---
-# Menghentikan aplikasi jika model/tokenizer gagal dimuat
+# Cek apakah tokenizer berhasil dimuat
 if tokenizer is None or model is None:
-    st.error("❌ Gagal memuat Model atau Tokenizer dari Hugging Face.")
-    st.info("Silakan cek koneksi internet server atau pastikan Repo Hugging Face Anda adalah PUBLIC.")
+    st.error("❌ Gagal memuat Model. Pastikan 'ree28/klasifikasiulasankai-indobert' tersedia di Hugging Face.")
     st.stop()
 
-def preprocess_text(text, tokenizer, max_length=32):
+def preprocess_text(text, tokenizer, max_length=128): # Sesuaikan max_length saat kamu training (biasanya 128)
     text = clean_text(text)
     text = normalize_text(text, KBBA_MAP)
+    
+    # Gunakan return_tensors='pt' untuk PyTorch
     return tokenizer.encode_plus(
         text,
+        add_special_tokens=True,
         max_length=max_length,
         padding="max_length",
         truncation=True,
+        return_attention_mask=True,
         return_tensors="pt"
     )
 
 def classify_review(text, tokenizer, model):
     encoded = preprocess_text(text, tokenizer)
+    
+    # Pindahkan tensor ke device yang sama dengan model (CPU/GPU)
+    input_ids = encoded["input_ids"]
+    attention_mask = encoded["attention_mask"]
+    
+    model.eval() # Set model ke mode evaluasi
     with torch.no_grad():
-        output = model(
-            input_ids=encoded["input_ids"],
-            attention_mask=encoded["attention_mask"]
-        )
-        probs = torch.softmax(output.logits, dim=1)[0].numpy()
+        output = model(input_ids=input_ids, attention_mask=attention_mask)
+        # Ambil logits dan ubah ke probabilitas
+        probs = torch.softmax(output.logits, dim=1)[0].cpu().numpy()
+        
     idx = np.argmax(probs)
     return LABEL_MAP[idx], probs[idx]
 
