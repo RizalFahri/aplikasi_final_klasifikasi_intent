@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import plotly.express as px
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import io
@@ -19,7 +20,8 @@ from util import (
 # =========================================================
 # 1. KONFIGURASI PATH & MODEL
 # =========================================================
-MODEL_PATH = "model_kai"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model_kai")
 KBBA_PATH = "kbba.txt"
 
 LABEL_MAP = {
@@ -51,7 +53,7 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        tokenizer = AutoTokenizer.from_pretrained(path)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
         model = AutoModelForSequenceClassification.from_pretrained(
             path, local_files_only=True
         )
