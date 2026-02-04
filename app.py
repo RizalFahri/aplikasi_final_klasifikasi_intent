@@ -8,6 +8,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import io
+import os
 
 from util import (
     get_reviews_by_date_range,
@@ -19,6 +20,7 @@ from util import (
 # =========================================================
 # 1. KONFIGURASI PATH & MODEL
 # =========================================================
+# Path Hugging Face (Pastikan repo 'ree28/klasifikasiulasankai-indobert' bersifat PUBLIC)
 MODEL_PATH = "ree28/klasifikasiulasankai-indobert"
 KBBA_PATH = "kbba.txt"
 
@@ -46,25 +48,35 @@ st.divider()
 # =========================================================
 # 3. FUNGSI UTILITY & NLP
 # =========================================================
-KBBA_MAP = load_kbba_dict(KBBA_PATH)
+# Load KBBA dengan proteksi
+try:
+    KBBA_MAP = load_kbba_dict(KBBA_PATH)
+except Exception as e:
+    st.error(f"Gagal memuat file KBBA: {e}")
+    KBBA_MAP = {}
 
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # 1. Muat Tokenizer dari Hugging Face
+        # HAPUS local_files_only=True agar bisa download dari Hugging Face
         tokenizer = AutoTokenizer.from_pretrained(path)
-        
-        # 2. Muat Model dari Hugging Face (Hapus local_files_only=True)
         model = AutoModelForSequenceClassification.from_pretrained(path)
-        
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Gagal memuat model dari Hugging Face: {e}")
+        # Menampilkan error di sidebar agar kamu bisa baca penyebab aslinya
+        st.sidebar.error(f"Detail Error Hugging Face: {e}")
         return None, None
 
+# Memuat model
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
 
+# --- PROTEKSI KRUSIAL ---
+# Jika tokenizer atau model GAGAL dimuat, hentikan aplikasi di sini!
+if tokenizer is None or model is None:
+    st.error("❌ Aplikasi tidak bisa dijalankan karena Model/Tokenizer gagal diunduh dari Hugging Face.")
+    st.info("Cek koneksi internet server atau pastikan nama repository Hugging Face sudah benar dan bersifat Public.")
+    st.stop() # Ini akan mencegah AttributeError muncul di bawah
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
     text = normalize_text(text, KBBA_MAP)
