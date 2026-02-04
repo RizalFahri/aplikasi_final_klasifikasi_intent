@@ -66,7 +66,13 @@ def load_model_and_tokenizer(path):
         st.error(f"🚨 Gagal memuat model: {e}")
         return None, None
 
+# Panggil fungsi
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
+
+# STOP aplikasi jika tokenizer gagal dimuat agar tidak AttributeError
+if tokenizer is None:
+    st.warning("Aplikasi dihentikan karena tokenizer tidak tersedia.")
+    st.stop()
 
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
