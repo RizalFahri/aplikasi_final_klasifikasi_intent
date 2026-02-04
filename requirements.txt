@@ -1,15 +1,17 @@
 streamlit>=1.35.0
 altair>=5.0.0
+scikit-learn
+
 # Core Data Science
 pandas
 numpy
 
 # Web Application
-streamlit
+
 
 # Deep Learning & NLP
-torch
-transformers
+torch==2.0.1
+transformers==4.30.2
 safetensors
 
 # Visualisasi
