@@ -19,7 +19,7 @@ from util import (
 # =========================================================
 # 1. KONFIGURASI PATH & MODEL
 # =========================================================
-MODEL_PATH = "RizalFahri/model_kai"
+MODEL_PATH = "model_kai"
 KBBA_PATH = "kbba.txt"
 
 LABEL_MAP = {
