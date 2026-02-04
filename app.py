@@ -1,57 +1,35 @@
 import streamlit as st
-import pandas as pd
-from datetime import date, timedelta
-import torch
-import numpy as np
-import plotly.express as px
 import os
 import subprocess
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud
-import io
-
-from util import (
-    get_reviews_by_date_range,
-    clean_text,
-    normalize_text,
-    load_kbba_dict
-)
 
 # =========================================================
-# 1. KONFIGURASI PATH (Path Relatif untuk GitHub)
+# 1. KONFIGURASI PATH (WAJIB RELATIF)
 # =========================================================
+# Mendapatkan path folder tempat app.py berada
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model_kai")
 KBBA_PATH = os.path.join(BASE_DIR, "kbba.txt")
 
-# Fungsi untuk menarik file asli dari LFS (Hanya berjalan di server Cloud)
-def ensure_lfs_files():
-    if os.path.exists(MODEL_PATH):
-        file_check = os.path.join(MODEL_PATH, "model.safetensors")
-        # Jika file cuma 1KB, berarti itu cuma pointer LFS, perlu di-pull
-        if os.path.exists(file_check) and os.path.getsize(file_check) < 10000:
-            try:
-                subprocess.run(["git", "lfs", "pull"], check=True)
-            except:
-                pass
+# Fungsi untuk memaksa unduh file asli dari Git LFS di server Streamlit
+@st.cache_resource
+def download_lfs():
+    try:
+        subprocess.run(["git", "lfs", "install"], check=True)
+        subprocess.run(["git", "lfs", "pull"], check=True)
+    except Exception as e:
+        st.error(f"Gagal menarik file LFS: {e}")
 
-ensure_lfs_files()
+download_lfs()
 
 # =========================================================
-# 3. FUNGSI UTILITY & NLP
+# 2. PEMUATAN MODEL
 # =========================================================
-# Gunakan try-except agar tidak crash jika file kbba.txt hilang
-try:
-    KBBA_MAP = load_kbba_dict(KBBA_PATH)
-except:
-    KBBA_MAP = {}
-
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # Cek apakah folder ada
-        if not os.path.exists(path):
+        # Pastikan file config.json ada di folder
+        if not os.path.exists(os.path.join(path, "config.json")):
             return None, None
             
         tokenizer = AutoTokenizer.from_pretrained(path)
@@ -59,19 +37,16 @@ def load_model_and_tokenizer(path):
         model.eval()
         return tokenizer, model
     except Exception as e:
-        # Menampilkan error asli di Streamlit untuk debug
-        st.sidebar.error(f"Error Loading Model: {e}")
+        st.sidebar.error(f"Detail Error: {e}")
         return None, None
 
-# Pemanggilan Model
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
 
-# PROTEKSI: Jika model/tokenizer gagal muat, hentikan aplikasi di sini
+# PROTEKSI: Hentikan app jika tokenizer kosong agar tidak muncul AttributeError
 if tokenizer is None or model is None:
-    st.error("❌ Gagal memuat Model atau Tokenizer.")
-    st.warning("Pastikan folder 'model_kai' sudah terupload lengkap ke GitHub dan file model.safetensors bukan merupakan pointer LFS.")
-    st.info("Saran: Gunakan file 'packages.txt' berisi 'git-lfs' di repository Anda.")
-    st.stop() # Menghentikan eksekusi kode di bawahnya agar tidak muncul AttributeError
+    st.error("❌ Model gagal dimuat. Kemungkinan besar file model di GitHub masih berupa pointer LFS (1 KB).")
+    st.info("Pastikan Anda sudah menambahkan 'git-lfs' di file packages.txt")
+    st.stop()
 
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
