@@ -67,9 +67,7 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 def load_model_and_tokenizer(path):
     try:
         tokenizer = AutoTokenizer.from_pretrained(path)
-        model = AutoModelForSequenceClassification.from_pretrained(
-            path, local_files_only=True
-        )
+        model = AutoModelForSequenceClassification.from_pretrained(path)
         model.eval()
         return tokenizer, model
     except Exception as e:
