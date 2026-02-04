@@ -1,59 +1,67 @@
 import streamlit as st
-import os
-import subprocess
+import pandas as pd
+from datetime import date, timedelta
+import torch
+import numpy as np
+import plotly.express as px
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import io
+
+from util import (
+    get_reviews_by_date_range,
+    clean_text,
+    normalize_text,
+    load_kbba_dict
+)
 
 # =========================================================
-# 1. KONFIGURASI PATH (WAJIB RELATIF)
+# 1. KONFIGURASI PATH & MODEL
 # =========================================================
-# Mendapatkan path folder tempat app.py berada
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "model_kai")
-KBBA_PATH = os.path.join(BASE_DIR, "kbba.txt")
+MODEL_PATH = "ree28/klasifikasiulasankai-indobert"
+KBBA_PATH = "kbba.txt"
 
-# Fungsi untuk memaksa unduh file asli dari Git LFS di server Streamlit
-@st.cache_resource
-def download_lfs():
-    try:
-        subprocess.run(["git", "lfs", "install"], check=True)
-        subprocess.run(["git", "lfs", "pull"], check=True)
-    except Exception as e:
-        st.error(f"Gagal menarik file LFS: {e}")
-
-download_lfs()
+LABEL_MAP = {
+    0: "Pujian",
+    1: "Keluhan",
+    2: "Saran",
+    3: "Laporan Kesalahan"
+}
+LABELS = list(LABEL_MAP.values())
 
 # =========================================================
-# 2. PEMUATAN MODEL
+# 2. KONFIGURASI HALAMAN
 # =========================================================
+st.set_page_config(
+    page_title="Klasifikasi Intent Access by KAI",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+st.title("🚂 SISTEM KLASIFIKASI INTENT ULASAN APLIKASI ACCESS BY KAI")
+st.caption("Analisis Otomatis Berbasis IndoBERT untuk Pendukung Keputusan Manajemen KAI")
+st.divider()
+
+# =========================================================
+# 3. FUNGSI UTILITY & NLP
+# =========================================================
+KBBA_MAP = load_kbba_dict(KBBA_PATH)
+
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # 1. Validasi keberadaan folder
-        if not os.path.exists(path):
-            st.error(f"Folder tidak ditemukan di: {path}")
-            return None, None
-            
-        # 2. Muat Tokenizer
         tokenizer = AutoTokenizer.from_pretrained(path)
-        
-        # 3. Muat Model (HAPUS local_files_only=True)
-        model = AutoModelForSequenceClassification.from_pretrained(path)
-        
+        model = AutoModelForSequenceClassification.from_pretrained(
+            path, local_files_only=True
+        )
         model.eval()
         return tokenizer, model
     except Exception as e:
-        # Menampilkan detail error di sidebar untuk memudahkan debug
-        st.sidebar.error(f"Detail Error Load Model: {e}")
+        st.error(f"Gagal memuat model: {e}")
         return None, None
 
-# Panggil fungsi
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
-
-# Hentikan aplikasi secara paksa jika gagal agar tidak melaju ke preprocess_text
-if tokenizer is None or model is None:
-    st.error("❌ SISTEM BERHENTI: Model tidak bisa dimuat dari folder 'model_kai'.")
-    st.info("Buka sidebar (tanda panah di kiri atas) untuk melihat detail error teknisnya.")
-    st.stop()
 
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
