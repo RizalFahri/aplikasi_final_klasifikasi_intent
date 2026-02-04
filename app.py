@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import plotly.express as px
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import io
@@ -57,20 +58,16 @@ except Exception as e:
     st.error(f"Gagal memuat file KBBA: {e}")
     KBBA_MAP = {}
 
-@st.cache_resource
-def load_model_and_tokenizer(path):
-    try:
-        # PENTING: Tanpa local_files_only agar mendownload dari Hugging Face
-        tk = AutoTokenizer.from_pretrained(path)
-        md = AutoModelForSequenceClassification.from_pretrained(path)
-        md.eval()
-        return tk, md
-    except Exception as e:
-        st.sidebar.error(f"Detail Error Load Model: {e}")
-        return None, None
+# 1. Pastikan loading tokenizer dilakukan dengan benar
+@st.cache_resource # Gunakan cache agar tidak reload terus menerus
+def load_model():
+    model_name = "indobenchmark/indobert-base-p2" # Atau path folder modelmu
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # Pastikan model juga dimuat
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    return tokenizer, model
 
-# Proses pemuatan model
-tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
+tokenizer, model = load_model()
 
 # --- PROTEKSI KRUSIAL ---
 # Menghentikan aplikasi jika model/tokenizer gagal dimuat
