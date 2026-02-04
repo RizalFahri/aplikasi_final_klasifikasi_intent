@@ -1,14 +1,11 @@
-streamlit==1.35.0
+streamlit
 pandas
-numpy
-transformers
-# Menggunakan torch versi terbaru yang mendukung Python 3.13
 torch
-safetensors
-sastrawi
-matplotlib
-seaborn
+transformers
+scipy
+numpy
 plotly
+matplotlib
 wordcloud
-google-play-scraper
 xlsxwriter
+google-play-scraper
