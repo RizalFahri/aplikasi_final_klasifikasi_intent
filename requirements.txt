@@ -1,20 +1,16 @@
-streamlit>=1.35.0
-altair>=5.0.0
-transformers==4.30.2
-torch==2.0.1
-scikit-learn
+# Core Framework
+streamlit==1.35.0
 
-# Core Data Science
+# Data Processing
 pandas
 numpy
+altair>=5.0.0
 
-# Web Application
-streamlit
-
-# Deep Learning & NLP
-torch
+# Deep Learning & NLP (Versi stabil untuk server Cloud)
+torch --index-url https://download.pytorch.org/whl/cpu
 transformers
 safetensors
+sastrawi
 
 # Visualisasi
 matplotlib
@@ -22,7 +18,6 @@ seaborn
 plotly
 wordcloud
 
-# Scraper & Utilities
+# Scraper & Excel Utilities
 google-play-scraper
 xlsxwriter
-sastrawi
