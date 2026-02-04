@@ -48,45 +48,31 @@ st.divider()
 # =========================================================
 # 3. FUNGSI UTILITY & NLP
 # =========================================================
-# Load KBBA dengan proteksi
-try:
-    KBBA_MAP = load_kbba_dict(KBBA_PATH)
-except Exception as e:
-    st.error(f"Gagal memuat file KBBA: {e}")
-    KBBA_MAP = {}
+KBBA_MAP = load_kbba_dict(KBBA_PATH)
 
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # HAPUS local_files_only=True agar bisa download dari Hugging Face
+        # PENTING: Jangan gunakan local_files_only=True untuk Hugging Face
         tokenizer = AutoTokenizer.from_pretrained(path)
         model = AutoModelForSequenceClassification.from_pretrained(path)
         model.eval()
         return tokenizer, model
     except Exception as e:
-        # Menampilkan error di sidebar agar kamu bisa baca penyebab aslinya
-        st.sidebar.error(f"Detail Error Hugging Face: {e}")
+        # Menampilkan error di sidebar untuk debug
+        st.sidebar.error(f"Gagal memuat model dari Hugging Face: {e}")
         return None, None
 
-# Memuat model
+# Eksekusi pemuatan
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
 
-# --- PROTEKSI KRUSIAL ---
-# Jika tokenizer atau model GAGAL dimuat, hentikan aplikasi di sini!
+# --- PROTEKSI WAJIB ---
+# Baris ini menghentikan aplikasi jika model gagal dimuat
+# sehingga tidak akan pernah sampai ke error 'AttributeError'
 if tokenizer is None or model is None:
-    st.error("❌ Aplikasi tidak bisa dijalankan karena Model/Tokenizer gagal diunduh dari Hugging Face.")
-    st.info("Cek koneksi internet server atau pastikan nama repository Hugging Face sudah benar dan bersifat Public.")
-    st.stop() # Ini akan mencegah AttributeError muncul di bawah
-def preprocess_text(text, tokenizer, max_length=32):
-    text = clean_text(text)
-    text = normalize_text(text, KBBA_MAP)
-    return tokenizer.encode_plus(
-        text,
-        max_length=max_length,
-        padding="max_length",
-        truncation=True,
-        return_tensors="pt"
-    )
+    st.error("❌ Model gagal dimuat dari Hugging Face.")
+    st.info("Pastikan repository 'ree28/klasifikasiulasankai-indobert' diatur sebagai PUBLIC.")
+    st.stop()
 
 def classify_review(text, tokenizer, model):
     encoded = preprocess_text(text, tokenizer)
