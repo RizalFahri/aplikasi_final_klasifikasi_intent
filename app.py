@@ -21,8 +21,8 @@ from util import (
 # =========================================================
 # 1. KONFIGURASI PATH & MODEL
 # =========================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "model_kai")
+# Cukup seperti ini jika folder model_kai ada di sebelah app.py
+MODEL_PATH = "model_kai"
 KBBA_PATH = "kbba.txt"
 
 LABEL_MAP = {
@@ -54,14 +54,16 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+        # Gunakan 'path' yang dipassing ke fungsi, bukan variabel global
+        tokenizer = AutoTokenizer.from_pretrained(path)
         model = AutoModelForSequenceClassification.from_pretrained(
             path, local_files_only=True
         )
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Gagal memuat model: {e}")
+        # Tampilkan error asli agar kita tahu kenapa gagal (misal: path salah)
+        st.error(f"🚨 Gagal memuat model di {path}: {e}")
         return None, None
 
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
