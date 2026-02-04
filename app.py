@@ -51,36 +51,36 @@ st.divider()
 # 3. FUNGSI UTILITY & NLP
 # =========================================================
 
-# Memuat kamus KBBA
-try:
-    KBBA_MAP = load_kbba_dict(KBBA_PATH)
-except Exception as e:
-    st.error(f"Gagal memuat file KBBA: {e}")
-    KBBA_MAP = {}
-
 @st.cache_resource 
-def load_model():
+def load_trained_model():
     try:
-        # PANGGIL MODEL_PATH yang berisi model hasil training kamu
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+        # Gunakan MODEL_PATH yang merujuk ke "ree28/klasifikasiulasankai-indobert"
+        # Tambahkan trust_remote_code jika model kamu menggunakan custom layer
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+        
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+        
         return tokenizer, model
     except Exception as e:
-        st.error(f"Error detail: {e}")
+        st.error(f"Gagal memuat model dari Hugging Face: {e}")
         return None, None
 
-tokenizer, model = load_model()
+# Inisialisasi
+tokenizer, model = load_trained_model()
 
-# Cek apakah tokenizer berhasil dimuat
-if tokenizer is None or model is None:
-    st.error("❌ Gagal memuat Model. Pastikan 'ree28/klasifikasiulasankai-indobert' tersedia di Hugging Face.")
+# Cek validitas objek sebelum lanjut
+if tokenizer is None or not hasattr(tokenizer, 'encode_plus'):
+    st.error("❌ Tokenizer tidak valid atau tidak memiliki atribut 'encode_plus'.")
     st.stop()
 
-def preprocess_text(text, tokenizer, max_length=128): # Sesuaikan max_length saat kamu training (biasanya 128)
+def preprocess_text(text, tokenizer, max_length=128):
     text = clean_text(text)
     text = normalize_text(text, KBBA_MAP)
     
-    # Gunakan return_tensors='pt' untuk PyTorch
+    # Memastikan input adalah string
+    text = str(text)
+    
     return tokenizer.encode_plus(
         text,
         add_special_tokens=True,
@@ -92,20 +92,21 @@ def preprocess_text(text, tokenizer, max_length=128): # Sesuaikan max_length saa
     )
 
 def classify_review(text, tokenizer, model):
-    encoded = preprocess_text(text, tokenizer)
-    
-    # Pindahkan tensor ke device yang sama dengan model (CPU/GPU)
-    input_ids = encoded["input_ids"]
-    attention_mask = encoded["attention_mask"]
-    
-    model.eval() # Set model ke mode evaluasi
-    with torch.no_grad():
-        output = model(input_ids=input_ids, attention_mask=attention_mask)
-        # Ambil logits dan ubah ke probabilitas
-        probs = torch.softmax(output.logits, dim=1)[0].cpu().numpy()
+    try:
+        encoded = preprocess_text(text, tokenizer)
+        model.eval()
+        with torch.no_grad():
+            output = model(
+                input_ids=encoded["input_ids"],
+                attention_mask=encoded["attention_mask"]
+            )
+            probs = torch.softmax(output.logits, dim=1)[0].cpu().numpy()
         
-    idx = np.argmax(probs)
-    return LABEL_MAP[idx], probs[idx]
+        idx = np.argmax(probs)
+        return LABEL_MAP[idx], probs[idx]
+    except Exception as e:
+        st.error(f"Error saat klasifikasi: {e}")
+        return "Error", 0.0
 
 def generate_wordcloud(text_series):
     text = " ".join(text_series)
