@@ -54,16 +54,16 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # Gunakan 'path' yang dipassing ke fungsi, bukan variabel global
         tokenizer = AutoTokenizer.from_pretrained(path)
+        # Hapus local_files_only agar dia bisa mencari file di cache jika perlu
         model = AutoModelForSequenceClassification.from_pretrained(
-            path, local_files_only=True
+            path, 
+            use_safetensors=True
         )
         model.eval()
         return tokenizer, model
     except Exception as e:
-        # Tampilkan error asli agar kita tahu kenapa gagal (misal: path salah)
-        st.error(f"🚨 Gagal memuat model di {path}: {e}")
+        st.error(f"🚨 Gagal memuat model: {e}")
         return None, None
 
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
