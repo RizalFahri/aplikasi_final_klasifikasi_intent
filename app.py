@@ -53,29 +53,36 @@ KBBA_MAP = load_kbba_dict(KBBA_PATH)
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
-        # PENTING: Jangan gunakan local_files_only=True untuk Hugging Face
+        # Menarik dari Hugging Face (Tanpa local_files_only)
         tokenizer = AutoTokenizer.from_pretrained(path)
         model = AutoModelForSequenceClassification.from_pretrained(path)
         model.eval()
         return tokenizer, model
     except Exception as e:
-        # Menampilkan error di sidebar untuk debug
-        st.sidebar.error(f"Gagal memuat model dari Hugging Face: {e}")
+        st.sidebar.error(f"Gagal memuat model: {e}")
         return None, None
 
-# Eksekusi pemuatan
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
 
-# --- PROTEKSI WAJIB ---
-# Baris ini menghentikan aplikasi jika model gagal dimuat
-# sehingga tidak akan pernah sampai ke error 'AttributeError'
+# PROTEKSI: Hentikan app jika model gagal dimuat
 if tokenizer is None or model is None:
-    st.error("❌ Model gagal dimuat dari Hugging Face.")
-    st.info("Pastikan repository 'ree28/klasifikasiulasankai-indobert' diatur sebagai PUBLIC.")
+    st.error("❌ Model tidak tersedia. Periksa koneksi ke Hugging Face.")
     st.stop()
 
+# --- PASTIKAN FUNGSI INI ADA ---
+def preprocess_text(text, tokenizer, max_length=32):
+    text = clean_text(text)
+    text = normalize_text(text, KBBA_MAP)
+    return tokenizer.encode_plus(
+        text,
+        max_length=max_length,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt"
+    )
+
 def classify_review(text, tokenizer, model):
-    encoded = preprocess_text(text, tokenizer)
+    encoded = preprocess_text(text, tokenizer) # Fungsi ini dipanggil di sini
     with torch.no_grad():
         output = model(
             input_ids=encoded["input_ids"],
@@ -84,7 +91,7 @@ def classify_review(text, tokenizer, model):
         probs = torch.softmax(output.logits, dim=1)[0].numpy()
     idx = np.argmax(probs)
     return LABEL_MAP[idx], probs[idx]
-
+    
 def generate_wordcloud(text_series):
     text = " ".join(text_series)
     wc = WordCloud(
