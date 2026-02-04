@@ -1,23 +1,14 @@
-# Core Framework
 streamlit==1.35.0
-
-# Data Processing
 pandas
 numpy
-altair>=5.0.0
-
-# Deep Learning & NLP (Versi stabil untuk server Cloud)
-torch --index-url https://download.pytorch.org/whl/cpu
 transformers
+# Menggunakan torch versi terbaru yang mendukung Python 3.13
+torch
 safetensors
 sastrawi
-
-# Visualisasi
 matplotlib
 seaborn
 plotly
 wordcloud
-
-# Scraper & Excel Utilities
 google-play-scraper
 xlsxwriter
