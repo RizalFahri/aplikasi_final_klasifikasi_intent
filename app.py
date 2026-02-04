@@ -4,8 +4,8 @@ from datetime import date, timedelta
 import torch
 import numpy as np
 import plotly.express as px
-import os  # Pastikan os diimport
-import subprocess # Untuk menarik file LFS
+import os
+import subprocess
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
@@ -19,62 +19,59 @@ from util import (
 )
 
 # =========================================================
-# 1. KONFIGURASI PATH & MODEL (VERSI GITHUB/CLOUD)
+# 1. KONFIGURASI PATH (Path Relatif untuk GitHub)
 # =========================================================
-# Menggunakan path relatif agar fleksibel
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model_kai")
 KBBA_PATH = os.path.join(BASE_DIR, "kbba.txt")
 
-# Tambahan khusus Git LFS: Tarik file asli jika yang terbaca hanya pointer (1KB)
-@st.cache_resource
-def sync_lfs():
-    try:
-        # Perintah ini memaksa server Cloud menarik file asli dari LFS
-        subprocess.run(["git", "lfs", "install"], check=True)
-        subprocess.run(["git", "lfs", "pull"], check=True)
-    except Exception as e:
-        st.warning(f"Catatan: Gagal menjalankan git lfs pull otomatis ({e}). Pastikan model sudah terunduh sempurna.")
+# Fungsi untuk menarik file asli dari LFS (Hanya berjalan di server Cloud)
+def ensure_lfs_files():
+    if os.path.exists(MODEL_PATH):
+        file_check = os.path.join(MODEL_PATH, "model.safetensors")
+        # Jika file cuma 1KB, berarti itu cuma pointer LFS, perlu di-pull
+        if os.path.exists(file_check) and os.path.getsize(file_check) < 10000:
+            try:
+                subprocess.run(["git", "lfs", "pull"], check=True)
+            except:
+                pass
 
-sync_lfs()
-
-LABEL_MAP = {
-    0: "Pujian",
-    1: "Keluhan",
-    2: "Saran",
-    3: "Laporan Kesalahan"
-}
-
-# =========================================================
-# 2. KONFIGURASI HALAMAN
-# =========================================================
-st.set_page_config(
-    page_title="Klasifikasi Intent Access by KAI",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-st.title("🚂 SISTEM KLASIFIKASI INTENT ULASAN APLIKASI ACCESS BY KAI")
-st.caption("Analisis Otomatis Berbasis IndoBERT untuk Pendukung Keputusan Manajemen KAI")
-st.divider()
+ensure_lfs_files()
 
 # =========================================================
 # 3. FUNGSI UTILITY & NLP
 # =========================================================
-KBBA_MAP = load_kbba_dict(KBBA_PATH)
+# Gunakan try-except agar tidak crash jika file kbba.txt hilang
+try:
+    KBBA_MAP = load_kbba_dict(KBBA_PATH)
+except:
+    KBBA_MAP = {}
 
 @st.cache_resource
 def load_model_and_tokenizer(path):
     try:
+        # Cek apakah folder ada
+        if not os.path.exists(path):
+            return None, None
+            
         tokenizer = AutoTokenizer.from_pretrained(path)
         model = AutoModelForSequenceClassification.from_pretrained(path)
         model.eval()
         return tokenizer, model
     except Exception as e:
-        st.error(f"Gagal memuat model: {e}")
+        # Menampilkan error asli di Streamlit untuk debug
+        st.sidebar.error(f"Error Loading Model: {e}")
         return None, None
 
+# Pemanggilan Model
 tokenizer, model = load_model_and_tokenizer(MODEL_PATH)
+
+# PROTEKSI: Jika model/tokenizer gagal muat, hentikan aplikasi di sini
+if tokenizer is None or model is None:
+    st.error("❌ Gagal memuat Model atau Tokenizer.")
+    st.warning("Pastikan folder 'model_kai' sudah terupload lengkap ke GitHub dan file model.safetensors bukan merupakan pointer LFS.")
+    st.info("Saran: Gunakan file 'packages.txt' berisi 'git-lfs' di repository Anda.")
+    st.stop() # Menghentikan eksekusi kode di bawahnya agar tidak muncul AttributeError
 
 def preprocess_text(text, tokenizer, max_length=32):
     text = clean_text(text)
